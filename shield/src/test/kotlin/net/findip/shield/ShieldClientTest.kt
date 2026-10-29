@@ -1,5 +1,8 @@
 package net.findip.shield
 
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -7,7 +10,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
 import java.security.KeyPairGenerator
 import java.security.PrivateKey
 import java.util.Base64
@@ -15,7 +21,7 @@ import java.util.Date
 import javax.crypto.Cipher
 
 /** Answers requests from a lambda and records them. */
-internal class StubTransport(var handler: (HttpRequest) -> Pair<Int, Any>) : HttpTransport {
+internal class StubTransport(var handler: suspend (HttpRequest) -> Pair<Int, Any>) : HttpTransport {
     val requests = mutableListOf<HttpRequest>()
 
     override suspend fun send(request: HttpRequest): HttpResponse {
@@ -49,7 +55,11 @@ class ShieldClientTest {
         override fun problem(message: String) = Unit
     }
 
-    private fun client(
+    @get:Rule
+    val folder = TemporaryFolder()
+
+    /** Runs the client's work on the test scheduler, so deadlines use virtual time. */
+    private fun TestScope.client(
         transport: StubTransport,
         options: ShieldOptions = ShieldOptions(),
         store: IdentifierStore = MemoryStore(),
@@ -57,7 +67,7 @@ class ShieldClientTest {
     ) = ShieldClient(
         siteKey = "pub_test0000000000", options = options, store = store, transport = transport,
         appInfo = AppInfo("com.example.app", "4.2.1", "1021"), deviceProvider = { device },
-        now = { clock.now }, retryDelay = {}, log = quietLog,
+        now = { clock.now }, retryDelay = {}, log = quietLog, scope = backgroundScope,
     )
 
     @Test
@@ -255,8 +265,48 @@ class ShieldClientTest {
     }
 
     @Test
-    fun identityKeyUrlSitsNextToTheTrackEndpoint() {
+    fun identityKeyUrlSitsNextToTheTrackEndpoint() = runTest {
         val client = client(StubTransport { 200 to allow })
         assertEquals("https://shield.findip.net/v1/shield/identity-key?site_key=pub_test0000000000", client.identityKeyUrl)
+    }
+
+    @Test
+    fun aSilentShieldAnswersUnknownAtTheDeadline() = runTest {
+        val transport = StubTransport { delay(60_000); 200 to allow }
+        val verdict = client(transport, ShieldOptions(timeoutMillis = 3_000)).track("login_attempt", null, null)
+        assertEquals(3_000L, currentTime)
+        assertEquals(Transport.Dropped(DropReason.UNREACHABLE), verdict.transport)
+        assertEquals(RiskStatus.UNKNOWN, verdict.risk.status)
+        assertEquals(Recommendation.MONITOR, verdict.risk.recommendation)
+        assertTrue(Regex("^sess_[A-Za-z0-9_-]{22}$").matches(verdict.sessionId))
+    }
+
+    @Test
+    fun theFirstEventDoesNotWaitForSessionStart() = runTest {
+        val transport = StubTransport { request ->
+            val name = JSONObject(String(request.body!!)).getJSONObject("event").getString("name")
+            if (name == "session_start") delay(4_000)
+            200 to allow
+        }
+        val verdict = client(transport).track("login_attempt", null, null)
+        assertEquals(Transport.Delivered, verdict.transport)
+        assertEquals("answered without waiting for session_start", 0L, currentTime)
+        assertEquals(listOf("session_start", "login_attempt"), transport.trackedNames)
+    }
+
+    @Test
+    fun theVisitorIdLivesOutsideBackupsAndMovesFromOldPreferences() {
+        val legacy = MemoryStore().apply { save("vis_fromOneZeroZero000000", "pub_test0000000000") }
+        val directory = File(folder.root, "net.findip.shield")
+        val store = NoBackupFileStore({ directory }, legacy)
+        assertEquals("vis_fromOneZeroZero000000", store.load("pub_test0000000000"))
+        assertNull("moved out of SharedPreferences", legacy.load("pub_test0000000000"))
+        assertEquals("kept for the next launch", "vis_fromOneZeroZero000000", NoBackupFileStore({ directory }).load("pub_test0000000000"))
+
+        store.save("vis_second0000000000000", "pub_other000000000")
+        assertEquals("one file per site key", "vis_second0000000000000", store.load("pub_other000000000"))
+        store.delete("pub_test0000000000")
+        assertNull(NoBackupFileStore({ directory }).load("pub_test0000000000"))
+        assertNull(NoBackupFileStore({ File(folder.root, "empty") }).load("pub_test0000000000"))
     }
 }

@@ -48,7 +48,7 @@ android {
 }
 
 dependencies {
-    // The SDK from this repository. In your app: implementation("net.findip:shield-android:1.0.0")
+    // The SDK from this repository. In your app: implementation("net.findip:shield-android:1.0.1")
     implementation(project(":shield"))
 
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))

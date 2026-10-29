@@ -33,7 +33,7 @@ class LiveTest {
 
         val client = ShieldClient(
             siteKey = siteKey,
-            options = ShieldOptions(endpoint = endpoint!!, debug = true),
+            options = ShieldOptions(endpoint = endpoint!!, debug = true, timeoutMillis = 20_000),
             store = MemoryStore(),
             transport = UrlConnectionTransport,
             appInfo = AppInfo(bundleId, "1.0.0", "1"),
@@ -48,7 +48,7 @@ class LiveTest {
         // An unregistered id is refused and named.
         val imposter = ShieldClient(
             siteKey = siteKey,
-            options = ShieldOptions(endpoint = endpoint),
+            options = ShieldOptions(endpoint = endpoint, timeoutMillis = 20_000),
             store = MemoryStore(),
             transport = UrlConnectionTransport,
             appInfo = AppInfo("com.imposter.android"),

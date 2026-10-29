@@ -20,9 +20,12 @@ public data class ShieldOptions @JvmOverloads constructor(
     val collectDeviceSignals: Boolean = true,
     /** Logs SDK activity with tag `FindIPShield`. */
     val debug: Boolean = false,
+    /** The longest [FindIPShield.track] waits for Shield; after it, an UNKNOWN verdict (MONITOR). */
+    val timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
 ) {
     public companion object {
         public const val DEFAULT_ENDPOINT: String = "https://shield.findip.net/v1/shield/track"
+        public const val DEFAULT_TIMEOUT_MILLIS: Long = 5_000
     }
 }
 

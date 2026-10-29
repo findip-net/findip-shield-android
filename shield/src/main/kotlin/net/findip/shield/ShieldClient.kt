@@ -1,13 +1,24 @@
 package net.findip.shield
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.net.URI
 import java.net.URLEncoder
 import java.util.Date
 import kotlin.random.Random
 
-/** One configured SDK instance: its state and the send logic of spec §3 and §6. */
+/**
+ * One configured SDK instance: its state and the send logic of spec §3 and §6.
+ * Every [track] runs in [scope] (Dispatchers.Default), never on the caller's thread,
+ * and answers within [ShieldOptions.timeoutMillis].
+ */
 internal class ShieldClient(
     val siteKey: String,
     val options: ShieldOptions,
@@ -18,6 +29,7 @@ internal class ShieldClient(
     private val now: () -> Date = { Date() },
     private val retryDelay: suspend () -> Unit = { delay(Random.nextLong(1_600, 2_400)) },
     private val log: ShieldLog = ShieldLog(options.debug),
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     companion object {
         const val MAX_IN_FLIGHT = 50
@@ -135,6 +147,14 @@ internal class ShieldClient(
         if (trimmed.isEmpty()) throw ShieldException(ShieldException.Reason.EMPTY_EVENT_NAME)
         val name = EventName.normalize(trimmed)
 
+        // The request keeps running after the deadline (HttpURLConnection cannot be
+        // interrupted); the caller gets its answer on time all the same.
+        val work = scope.async { trackNow(name, context, screen) }
+        return withTimeoutOrNull(options.timeoutMillis) { work.await() }
+            ?: Verdict.unknown(currentSessionId, Transport.Dropped(DropReason.UNREACHABLE), "shield_unreachable")
+    }
+
+    private suspend fun trackNow(name: String, context: Map<String, Any?>?, screen: String?): Verdict {
         val (granted, session, visitor, identity) = synchronized(lock) {
             Quad(consentGranted, touchSession(now().time, recordActivity = true), currentVisitorId(), this.identity)
         }
@@ -143,7 +163,11 @@ internal class ShieldClient(
             return Verdict.unknown(session.first, Transport.Dropped(DropReason.CONSENT), "consent_required")
         }
         if (session.second && name != "session_start") {
-            send("session_start", null, null, session.first, visitor, identity)
+            // Not awaited: the event does not wait for a second round trip. Ingest
+            // stores both in either order. Undispatched, so session_start goes out first.
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                send("session_start", null, null, session.first, visitor, identity)
+            }
         }
         return send(name, context, screen, session.first, visitor, identity)
     }
