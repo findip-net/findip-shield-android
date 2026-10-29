@@ -3,6 +3,7 @@ package net.findip.shield
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,7 +34,7 @@ public object FindIPShield {
 
     /**
      * Configures the SDK. Returns at once: nothing is sent and no I/O runs until
-     * the first [track]. Calling it again replaces the options; the visitor ID is kept.
+     * the first [track], which runs off the calling thread. Calling it again replaces the options; the visitor ID is kept.
      *
      * @throws ShieldException when the key does not start with `pub_`.
      */
@@ -47,7 +48,7 @@ public object FindIPShield {
             ShieldClient(
                 siteKey = key,
                 options = options,
-                store = SharedPreferencesStore(app),
+                store = NoBackupFileStore({ File(app.noBackupFilesDir, "net.findip.shield") }, legacy = SharedPreferencesStore(app)),
                 transport = UrlConnectionTransport,
                 appInfo = AppInfo.current(app),
                 deviceProvider = { DeviceInfo.current(app) },

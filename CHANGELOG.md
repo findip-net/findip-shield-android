@@ -2,6 +2,24 @@
 
 All notable changes to this library are documented here.
 
+## 1.0.1 - 2026-10-29
+
+### Fixed
+
+- `track` no longer runs on the caller's thread. Called from the main thread
+  (`lifecycleScope`, `viewModelScope`), 1.0.0 read the visitor ID from disk,
+  ran the root checks and hashed the identity there, which StrictMode reports.
+- The visitor ID moved from SharedPreferences to `noBackupFilesDir`, so Auto
+  Backup and device transfer no longer copy it to another phone. An ID kept by
+  1.0.0 moves over on first use.
+- The first event of a session no longer waits for its `session_start`.
+
+### Added
+
+- `ShieldOptions.timeoutMillis` (default 5 000): the longest `track` waits for
+  Shield. After it, `track` returns an UNKNOWN verdict with MONITOR and
+  `Dropped(UNREACHABLE)`; 1.0.0 could wait more than 30 seconds offline.
+
 ## 1.0.0 - 2026-10-29
 
 ### Added

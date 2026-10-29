@@ -18,14 +18,14 @@ Android 8 (API 26) or later. From Maven Central:
 
 ```kotlin
 dependencies {
-    implementation("net.findip:shield-android:1.0.0")
+    implementation("net.findip:shield-android:1.0.1")
 }
 ```
 
-Without Maven Central, download `shield-android-1.0.0.aar` from the
-[1.0.0 release](https://github.com/findip-net/findip-shield-android/releases/tag/v1.0.0)
+Without Maven Central, download `shield-android-1.0.1.aar` from the
+[1.0.1 release](https://github.com/findip-net/findip-shield-android/releases/tag/v1.0.1)
 (SHA-256 alongside), put it in `libs/`, and use
-`implementation(files("libs/shield-android-1.0.0.aar"))` plus
+`implementation(files("libs/shield-android-1.0.1.aar"))` plus
 `implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")`.
 
 Releases are signed with key `8B47 044F 2F53 9A61 850A  5799 80BD BB22 DF49 39D5`.
@@ -87,6 +87,8 @@ FindIPShield.track(ShieldEvents.LOGIN_ATTEMPT, new FindIPShield.VerdictCallback(
 `track` never throws for network or server problems. Without an answer from
 Shield it returns `RiskStatus.UNKNOWN` with `MONITOR`, never `ALLOW`, and
 `verdict.transport` says why (`Dropped(UNREACHABLE)`, `Dropped(CONFIGURATION)`, …).
+It runs off the calling thread, so calling it from the main thread is safe, and
+it answers within `timeoutMillis` (5 seconds by default) whatever the network does.
 
 ## Identify the user
 
@@ -108,6 +110,7 @@ FindIPShield.configure(this, "pub_xxxxxxxxx", ShieldOptions(
     sessionTimeoutMinutes = 30,
     collectDeviceSignals = true,         // emulator / root / debugger heuristics
     debug = false,                       // logs with tag FindIPShield
+    timeoutMillis = 5_000,               // the longest track waits; then UNKNOWN / MONITOR
 ))
 ```
 
@@ -126,9 +129,10 @@ email, a phone or a card number, never leave the device.
 | A session ID per session and a visitor ID in app-private storage | Plain emails or user IDs |
 | The event name | |
 
-The visitor ID lives in the app's private SharedPreferences and is cleared on
-uninstall. Whether it is included in backups follows your app's
-`android:allowBackup`.
+The visitor ID lives in the app's `noBackupFilesDir` and is cleared on
+uninstall. It is never part of Auto Backup or a device-to-device transfer,
+whatever your `android:allowBackup` says, so a restored phone gets its own
+visitor ID. (iOS keeps it in the Keychain, which survives a reinstall.)
 
 **Google Play Data safety answers** for this SDK: Device or other IDs (the
 visitor ID) and App interactions (event names), collected, not shared, for
