@@ -14,14 +14,24 @@ the verdict before it acts.
 
 ## Install
 
-Android 8 (API 26) or later. Maven Central publication is being set up; until
-then build the AAR from this repository (`./gradlew :shield:assembleRelease`).
+Android 8 (API 26) or later.
+
+The library is not on Maven Central yet. Until it is, build the AAR from this
+repository and add it to your app:
+
+```bash
+./gradlew :shield:assembleRelease
+# shield/build/outputs/aar/shield-release.aar
+```
 
 ```kotlin
 dependencies {
-    implementation("net.findip:shield-android:1.0.0")
+    implementation(files("libs/shield-release.aar"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
 }
 ```
+
+Once it is published, this becomes `implementation("net.findip:shield-android:1.0.0")`.
 
 ## Set up
 
