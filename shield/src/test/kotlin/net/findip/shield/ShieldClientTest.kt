@@ -15,7 +15,7 @@ import java.util.Date
 import javax.crypto.Cipher
 
 /** Answers requests from a lambda and records them. */
-class StubTransport(var handler: (HttpRequest) -> Pair<Int, Any>) : HttpTransport {
+internal class StubTransport(var handler: (HttpRequest) -> Pair<Int, Any>) : HttpTransport {
     val requests = mutableListOf<HttpRequest>()
 
     override suspend fun send(request: HttpRequest): HttpResponse {
@@ -28,7 +28,7 @@ class StubTransport(var handler: (HttpRequest) -> Pair<Int, Any>) : HttpTranspor
     val trackedNames: List<String> get() = tracked.map { it.getJSONObject("event").getString("name") }
 }
 
-class TestClock {
+internal class TestClock {
     var now = Date(1_800_000_000_000)
     fun advance(seconds: Long) { now = Date(now.time + seconds * 1000) }
 }
