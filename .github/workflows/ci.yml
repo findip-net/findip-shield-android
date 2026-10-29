@@ -31,6 +31,16 @@ jobs:
           size=$(stat -c %s shield/build/outputs/aar/shield-release.aar)
           echo "AAR: $size bytes"
           test "$size" -lt 307200
+      - name: Maven publication (local) has every file Central requires
+        run: |
+          ./gradlew :shield:publishToMavenLocal --no-configuration-cache
+          v=$(grep '^VERSION_NAME=' gradle.properties | cut -d= -f2)
+          d=~/.m2/repository/net/findip/shield-android/$v
+          ls -l "$d"
+          for f in shield-android-$v.aar shield-android-$v.pom shield-android-$v-sources.jar shield-android-$v-javadoc.jar shield-android-$v.module; do
+            test -s "$d/$f" || { echo "missing $f"; exit 1; }
+          done
+          grep -q '<artifactId>kotlinx-coroutines-core</artifactId>' "$d/shield-android-$v.pom"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
