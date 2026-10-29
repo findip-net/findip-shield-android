@@ -143,6 +143,12 @@ If you call `identify`, also declare the identifiers you pass.
 `PAYMENT_FAILED`, `LEAD_SUBMITTED` and more. Any other name is stored as
 `custom`. Sensitive actions are retried once when the network fails.
 
+## Demo app
+
+[`examples/shield-demo`](examples/shield-demo) is a Compose login screen with
+a small Node backend that verifies the session: the whole flow from `track`
+to the backend's decision, in one runnable project.
+
 ## License
 
 MIT. Report vulnerabilities privately: [SECURITY.md](SECURITY.md).
