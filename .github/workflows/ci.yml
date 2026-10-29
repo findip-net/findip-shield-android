@@ -26,6 +26,12 @@ jobs:
         run: ./gradlew :shield:assembleRelease
       - name: Android lint
         run: ./gradlew :shield:lintRelease
+      - name: Demo app builds and passes lint
+        run: ./gradlew :shield-demo:assembleDebug :shield-demo:lintDebug
+      - name: Demo backend starts and checks its key
+        run: |
+          node --check examples/shield-demo/server/server.mjs
+          if SHIELD_SECRET_KEY= node examples/shield-demo/server/server.mjs; then echo "should refuse to start without a key"; exit 1; fi
       - name: AAR size under 300 KB
         run: |
           size=$(stat -c %s shield/build/outputs/aar/shield-release.aar)
@@ -45,4 +51,6 @@ jobs:
         if: always()
         with:
           name: reports
-          path: shield/build/reports
+          path: |
+            shield/build/reports
+            examples/shield-demo/build/reports
