@@ -6,7 +6,7 @@ network behind the request (VPN, proxy, Tor, hosting, known-malicious) and
 recommends `ALLOW`, `MONITOR`, `CHALLENGE` or `BLOCK`. Your backend confirms
 the verdict before it acts.
 
-- One dependency (kotlinx-coroutines), permission `INTERNET` only.
+- On Maven Central as `net.findip:shield-android`. One dependency (kotlinx-coroutines), permission `INTERNET` only.
 - No advertising ID, no `ANDROID_ID`, no fingerprinting.
 - Emails and user IDs are hashed and encrypted on the device; only your
   Shield dashboard can open them.
@@ -14,21 +14,21 @@ the verdict before it acts.
 
 ## Install
 
-Android 8 (API 26) or later.
-
-Download `shield-android-1.0.0.aar` from the
-[1.0.0 release](https://github.com/findip-net/findip-shield-android/releases/tag/v1.0.0)
-(its SHA-256 is next to it), put it in your app's `libs/` folder, and add:
+Android 8 (API 26) or later. From Maven Central:
 
 ```kotlin
 dependencies {
-    implementation(files("libs/shield-android-1.0.0.aar"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("net.findip:shield-android:1.0.0")
 }
 ```
 
-Maven Central publication is being set up. Once it is live, the two lines
-above become `implementation("net.findip:shield-android:1.0.0")`.
+Without Maven Central, download `shield-android-1.0.0.aar` from the
+[1.0.0 release](https://github.com/findip-net/findip-shield-android/releases/tag/v1.0.0)
+(SHA-256 alongside), put it in `libs/`, and use
+`implementation(files("libs/shield-android-1.0.0.aar"))` plus
+`implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")`.
+
+Releases are signed with key `8B47 044F 2F53 9A61 850A  5799 80BD BB22 DF49 39D5`.
 
 ## Set up
 
