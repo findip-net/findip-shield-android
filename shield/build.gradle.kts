@@ -24,7 +24,6 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs += listOf("-Xexplicit-api=strict")
     }
 
     testOptions {
@@ -35,6 +34,11 @@ android {
         abortOnError = true
         warningsAsErrors = false
     }
+}
+
+kotlin {
+    // Every public declaration is deliberate; applies to the library, not its tests.
+    explicitApi()
 }
 
 dependencies {
