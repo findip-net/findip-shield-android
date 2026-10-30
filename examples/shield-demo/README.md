@@ -62,5 +62,5 @@ The demo builds against this repository's source. Your app uses the published
 package:
 
 ```kotlin
-implementation("net.findip:shield-android:1.0.2")
+implementation("net.findip:shield-android:1.0.3")
 ```
