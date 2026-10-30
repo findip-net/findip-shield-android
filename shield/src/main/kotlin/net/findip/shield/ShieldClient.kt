@@ -94,6 +94,7 @@ internal class ShieldClient(
     private var identity: IdentityInput? = null
     private var sessionId: String? = null
     private var lastEventAt: Long? = null
+    private var sessionStartPending = false
     private var backgroundedAt: Long? = null
     private var visitorId: String? = null
     private var device: DeviceInfo? = null
@@ -144,24 +145,24 @@ internal class ShieldClient(
     private fun expiredInBackground(at: Long): Boolean = backgroundedAt?.let { at - it > timeoutMillis } ?: false
 
     /** The current session ID, starting a session when none is open. */
-    val currentSessionId: String get() = synchronized(lock) { touchSession(now().time, recordActivity = false).first }
+    val currentSessionId: String get() = synchronized(lock) { touchSession(now().time, recordActivity = false) }
 
     /**
      * Starts a new session when none is open, the last event is older than the timeout,
      * or the app has been in the background longer than the timeout. Call with the lock held.
      */
-    private fun touchSession(at: Long, recordActivity: Boolean): Pair<String, Boolean> {
-        var isNew = false
+    private fun touchSession(at: Long, recordActivity: Boolean): String {
         val last = lastEventAt
         if (sessionId == null || expiredInBackground(at) || (last != null && at - last > timeoutMillis)) {
             sessionId = Identifiers.make("sess_")
-            isNew = true
+            // Only an event sent in this session can carry its session_start.
+            sessionStartPending = true
             lastEventAt = at
             // A background event opened this session: its timeout starts now.
             if (backgroundedAt != null) backgroundedAt = at
         }
         if (recordActivity || lastEventAt == null) lastEventAt = at
-        return sessionId!! to isNew
+        return sessionId!!
     }
 
     /** Call with the lock held. */
@@ -187,24 +188,33 @@ internal class ShieldClient(
     }
 
     private suspend fun trackNow(name: String, context: Map<String, Any?>?, screen: String?): Verdict {
-        val (granted, session, visitor, identity) = synchronized(lock) {
-            Quad(consentGranted, touchSession(now().time, recordActivity = true), currentVisitorId(), this.identity)
+        val (granted, session, needsStart, visitor, identity) = synchronized(lock) {
+            val session = touchSession(now().time, recordActivity = true)
+            val needsStart = consentGranted && sessionStartPending
+            if (needsStart) sessionStartPending = false
+            TrackState(consentGranted, session, needsStart, currentVisitorId(), this.identity)
         }
         if (!granted) {
             log.debug { "consent not given: $name not sent" }
-            return Verdict.unknown(session.first, Transport.Dropped(DropReason.CONSENT), "consent_required")
+            return Verdict.unknown(session, Transport.Dropped(DropReason.CONSENT), "consent_required")
         }
-        if (session.second && name != "session_start") {
+        if (needsStart && name != "session_start") {
             // Not awaited: the event does not wait for a second round trip. Ingest
             // stores both in either order. Undispatched, so session_start goes out first.
             scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                send("session_start", null, null, session.first, visitor, identity)
+                send("session_start", null, null, session, visitor, identity)
             }
         }
-        return send(name, context, screen, session.first, visitor, identity)
+        return send(name, context, screen, session, visitor, identity)
     }
 
-    private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
+    private data class TrackState(
+        val granted: Boolean,
+        val session: String,
+        val needsStart: Boolean,
+        val visitorId: String?,
+        val identity: IdentityInput?,
+    )
 
     private suspend fun send(
         name: String, context: Map<String, Any?>?, screen: String?,

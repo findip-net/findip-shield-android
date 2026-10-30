@@ -190,6 +190,50 @@ class ShieldClientTest {
         assertTrue(transport.requests.isEmpty())
         client.setConsent(true)
         assertEquals(Transport.Delivered, client.track("login_attempt", null, null).transport)
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, transport.trackedNames.count { it == "session_start" })
+    }
+
+    @Test
+    fun readingTheSessionIdFirstStillSendsSessionStart() = runTest {
+        val transport = StubTransport { 200 to allow }
+        val client = client(transport)
+
+        val read = client.currentSessionId
+        client.track("login_attempt", null, null)
+        client.track("login_success", null, null)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(setOf(read), sessions(transport).toSet())
+        assertEquals(1, transport.trackedNames.count { it == "session_start" })
+    }
+
+    @Test
+    fun readingTheSessionIdAfterTheTimeoutStillSendsSessionStart() = runTest {
+        val transport = StubTransport { 200 to allow }
+        val clock = TestClock()
+        val client = client(transport, clock = clock)
+
+        client.track("login_attempt", null, null)
+        clock.advance(31 * 60)
+        val read = client.currentSessionId
+        client.track("login_success", null, null)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(read, sessions(transport).last())
+        assertEquals(2, transport.trackedNames.count { it == "session_start" })
+    }
+
+    @Test
+    fun anExplicitSessionStartIsNotSentTwice() = runTest {
+        val transport = StubTransport { 200 to allow }
+        val client = client(transport)
+
+        client.track("session_start", null, null)
+        client.track("login_attempt", null, null)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("session_start", "login_attempt"), transport.trackedNames)
     }
 
     @Test
