@@ -12,7 +12,7 @@ class DemoApp : Application() {
         super.onCreate()
         if (BuildConfig.SHIELD_SITE_KEY.isBlank()) return
         try {
-            FindIPShield.configure(this, BuildConfig.SHIELD_SITE_KEY, ShieldOptions(debug = BuildConfig.DEBUG))
+            FindIPShield.configure(this, BuildConfig.SHIELD_SITE_KEY, ShieldOptions(endpoint = BuildConfig.SHIELD_ENDPOINT, debug = BuildConfig.DEBUG))
             configured = true
         } catch (e: ShieldException) {
             Log.w("ShieldDemo", "Shield is off: ${e.message}")

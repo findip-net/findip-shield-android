@@ -1,9 +1,13 @@
 package net.findip.shield
 
+import android.app.Activity
+import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,6 +36,8 @@ public object FindIPShield {
 
     internal val current: ShieldClient? get() = client
 
+    private val observingLifecycle = AtomicBoolean(false)
+
     /**
      * Configures the SDK. Returns at once: nothing is sent and no I/O runs until
      * the first [track], which runs off the calling thread. Calling it again replaces the options; the visitor ID is kept.
@@ -54,10 +60,39 @@ public object FindIPShield {
                 deviceProvider = { DeviceInfo.current(app) },
             ),
         )
+        if (app is Application && observingLifecycle.compareAndSet(false, true)) {
+            app.registerActivityLifecycleCallbacks(LifecycleObserver)
+        }
     }
 
     internal fun install(newClient: ShieldClient) {
         client = newClient
+    }
+
+    /**
+     * Follows the app to the background and back, for the session timeout (spec §3).
+     * The app is in the background once no started activity is left. An activity
+     * started before [configure] is not counted, so its stop is not mistaken for that.
+     */
+    private object LifecycleObserver : Application.ActivityLifecycleCallbacks {
+        private val started = HashSet<Int>()
+
+        override fun onActivityStarted(activity: Activity) {
+            if (started.isEmpty()) client?.willEnterForeground()
+            started.add(System.identityHashCode(activity))
+        }
+
+        override fun onActivityStopped(activity: Activity) {
+            if (started.remove(System.identityHashCode(activity)) && started.isEmpty() && !activity.isChangingConfigurations) {
+                client?.didEnterBackground()
+            }
+        }
+
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+        override fun onActivityResumed(activity: Activity) = Unit
+        override fun onActivityPaused(activity: Activity) = Unit
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+        override fun onActivityDestroyed(activity: Activity) = Unit
     }
 
     /**

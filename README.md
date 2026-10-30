@@ -18,14 +18,14 @@ Android 8 (API 26) or later. From Maven Central:
 
 ```kotlin
 dependencies {
-    implementation("net.findip:shield-android:1.0.1")
+    implementation("net.findip:shield-android:1.0.2")
 }
 ```
 
-Without Maven Central, download `shield-android-1.0.1.aar` from the
-[1.0.1 release](https://github.com/findip-net/findip-shield-android/releases/tag/v1.0.1)
+Without Maven Central, download `shield-android-1.0.2.aar` from the
+[1.0.2 release](https://github.com/findip-net/findip-shield-android/releases/tag/v1.0.2)
 (SHA-256 alongside), put it in `libs/`, and use
-`implementation(files("libs/shield-android-1.0.1.aar"))` plus
+`implementation(files("libs/shield-android-1.0.2.aar"))` plus
 `implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")`.
 
 Releases are signed with key `8B47 044F 2F53 9A61 850A  5799 80BD BB22 DF49 39D5`.

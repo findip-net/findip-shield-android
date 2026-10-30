@@ -2,6 +2,15 @@
 
 All notable changes to this library are documented here.
 
+## 1.0.2 - 2026-10-30
+
+### Fixed
+
+- `sessionTimeoutMinutes` now also counts time in the background: events sent
+  in the background no longer keep a session open past the timeout. A shorter
+  trip to the background keeps the session, so a user who leaves to read a
+  code from their mail is still in the same login.
+
 ## 1.0.1 - 2026-10-29
 
 ### Fixed

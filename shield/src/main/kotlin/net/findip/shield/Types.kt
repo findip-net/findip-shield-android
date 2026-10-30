@@ -14,7 +14,7 @@ public data class ShieldOptions @JvmOverloads constructor(
     val consentRequired: Boolean = false,
     /** The track endpoint. The identity-key endpoint is derived from it. */
     val endpoint: String = DEFAULT_ENDPOINT,
-    /** A session ends after this many minutes without an event (or in the background). */
+    /** A session ends after this many minutes without an event or in the background. A shorter trip to the background keeps it. */
     val sessionTimeoutMinutes: Int = 30,
     /** Sends the emulator / root / debugger heuristics. Always off in [PrivacyMode.STRICT]. */
     val collectDeviceSignals: Boolean = true,

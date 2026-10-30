@@ -47,6 +47,38 @@ jobs:
             test -s "$d/$f" || { echo "missing $f"; exit 1; }
           done
           grep -q '<artifactId>kotlinx-coroutines-core</artifactId>' "$d/shield-android-$v.pom"
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Start the stand-in for Shield and the demo backend
+        working-directory: examples/shield-demo
+        run: |
+          EVENTS_FILE=events.jsonl nohup node ci/fake-shield.mjs > fake-shield.log 2>&1 &
+          SHIELD_SECRET_KEY=sec_citest SHIELD_VERIFY_URL=http://localhost:8788/v1/shield/sessions/verify nohup node server/server.mjs > backend.log 2>&1 &
+          for port in 8787 8788; do
+            for i in $(seq 1 30); do curl -sf localhost:$port/health >/dev/null && break; sleep 1; done
+            curl -sf localhost:$port/health
+          done
+          printf 'shield.siteKey=pub_citest0000000000\nshield.endpoint=http://10.0.2.2:8788/v1/shield/track\n' > ../../local.properties
+      - name: Demo app runs on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            ./gradlew :shield-demo:connectedDebugAndroidTest --stacktrace
+            adb logcat -d -s FindIPShield > examples/shield-demo/sdk.log
+      - name: What the app sent, and the lifecycle reaching the SDK
+        working-directory: examples/shield-demo
+        run: |
+          node ci/check-events.mjs events.jsonl android
+          grep -q 'app in the background' sdk.log
+          grep -q 'app in the foreground: session kept' sdk.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -54,3 +86,5 @@ jobs:
           path: |
             shield/build/reports
             examples/shield-demo/build/reports
+            examples/shield-demo/events.jsonl
+            examples/shield-demo/sdk.log

@@ -70,6 +70,68 @@ class ShieldClientTest {
         now = { clock.now }, retryDelay = {}, log = quietLog, scope = backgroundScope,
     )
 
+    private fun sessions(transport: StubTransport): List<String> = transport.tracked
+        .filter { it.getJSONObject("event").getString("name") != "session_start" }
+        .map { it.getJSONObject("session").getString("session_id") }
+
+    @Test
+    fun aShortTripToTheBackgroundKeepsTheSession() = runTest {
+        val transport = StubTransport { 200 to allow }
+        val clock = TestClock()
+        val client = client(transport, clock = clock)
+
+        client.track("login_attempt", null, null)
+        client.didEnterBackground()
+        clock.advance(60)
+        client.willEnterForeground()
+        client.track("login_success", null, null)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, sessions(transport).toSet().size)
+        assertEquals(1, transport.trackedNames.count { it == "session_start" })
+    }
+
+    @Test
+    fun aLongTripToTheBackgroundEndsTheSession() = runTest {
+        val transport = StubTransport { 200 to allow }
+        val clock = TestClock()
+        val client = client(transport, clock = clock)
+
+        client.track("login_attempt", null, null)
+        client.didEnterBackground()
+        clock.advance(31 * 60)
+        client.willEnterForeground()
+        client.track("login_attempt", null, null)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(2, sessions(transport).toSet().size)
+        assertEquals(2, transport.trackedNames.count { it == "session_start" })
+    }
+
+    @Test
+    fun eventsSentInTheBackgroundDoNotKeepTheSessionOpen() = runTest {
+        val transport = StubTransport { 200 to allow }
+        val clock = TestClock()
+        val client = client(transport, clock = clock)
+
+        client.track("login_attempt", null, null)
+        client.didEnterBackground()
+        clock.advance(20 * 60)
+        client.track("custom", null, null)
+        clock.advance(20 * 60)
+        client.track("custom", null, null)
+        clock.advance(60)
+        client.track("custom", null, null)
+        testScheduler.advanceUntilIdle()
+
+        // 40 minutes in the background ends the first session; the second stays
+        // open, its own background time having restarted when it opened.
+        val seen = sessions(transport)
+        assertEquals(seen[0], seen[1])
+        assertFalse(seen[1] == seen[2])
+        assertEquals(seen[2], seen[3])
+    }
+
     @Test
     fun deliveredVerdictAndSessionStartOncePerSession() = runTest {
         val transport = StubTransport { 200 to allow }

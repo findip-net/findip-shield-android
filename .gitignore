@@ -6,3 +6,7 @@ local.properties
 .DS_Store
 captures/
 .kotlin/
+
+examples/shield-demo/events.jsonl
+examples/shield-demo/sdk.log
+examples/shield-demo/*.log
