@@ -28,6 +28,9 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         buildConfigField("String", "SHIELD_SITE_KEY", "\"${localValue("shield.siteKey", "")}\"")
+        // Only the CI run changes this: it uses ci/fake-shield.mjs instead of Shield.
+        buildConfigField("String", "SHIELD_ENDPOINT", "\"${localValue("shield.endpoint", "https://shield.findip.net/v1/shield/track")}\"")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // 10.0.2.2 is the computer running the emulator.
         buildConfigField("String", "DEMO_BACKEND", "\"${localValue("shield.demoBackend", "http://10.0.2.2:8787")}\"")
     }
@@ -48,7 +51,7 @@ android {
 }
 
 dependencies {
-    // The SDK from this repository. In your app: implementation("net.findip:shield-android:1.0.1")
+    // The SDK from this repository. In your app: implementation("net.findip:shield-android:1.0.2")
     implementation(project(":shield"))
 
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
@@ -57,4 +60,11 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
 }

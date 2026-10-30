@@ -51,11 +51,16 @@ rule **App version or platform → Android app, version below 2.0 → Block**:
 this demo is version 1.0.0, so the next login is refused with a neutral
 message, and the panel shows the rule's name.
 
+## Tests
+
+`src/androidTest` runs the whole flow on an emulator against a stand-in for
+Shield (`ci/fake-shield.mjs`). CI runs it on every pull request.
+
 ## In your own app
 
 The demo builds against this repository's source. Your app uses the published
 package:
 
 ```kotlin
-implementation("net.findip:shield-android:1.0.1")
+implementation("net.findip:shield-android:1.0.2")
 ```

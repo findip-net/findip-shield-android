@@ -94,6 +94,7 @@ internal class ShieldClient(
     private var identity: IdentityInput? = null
     private var sessionId: String? = null
     private var lastEventAt: Long? = null
+    private var backgroundedAt: Long? = null
     private var visitorId: String? = null
     private var device: DeviceInfo? = null
     private var cooldownUntil: Long? = null
@@ -116,17 +117,48 @@ internal class ShieldClient(
         lastEventAt = null
     }
 
+    /**
+     * The app went to the background. The session stays open: a user who leaves
+     * to read a code from their mail is still in the same login.
+     */
+    fun didEnterBackground() {
+        synchronized(lock) { backgroundedAt = now().time }
+        log.debug { "app in the background" }
+    }
+
+    /** The app is back. The session ends if it was away longer than the timeout. */
+    fun willEnterForeground() {
+        val ended = synchronized(lock) {
+            val expired = expiredInBackground(now().time)
+            if (expired) {
+                sessionId = null
+                lastEventAt = null
+            }
+            backgroundedAt = null
+            expired
+        }
+        log.debug { if (ended) "app in the foreground: session ended" else "app in the foreground: session kept" }
+    }
+
+    /** Call with the lock held. */
+    private fun expiredInBackground(at: Long): Boolean = backgroundedAt?.let { at - it > timeoutMillis } ?: false
+
     /** The current session ID, starting a session when none is open. */
     val currentSessionId: String get() = synchronized(lock) { touchSession(now().time, recordActivity = false).first }
 
-    /** Starts a new session when none is open or the last event is older than the timeout. Call with the lock held. */
+    /**
+     * Starts a new session when none is open, the last event is older than the timeout,
+     * or the app has been in the background longer than the timeout. Call with the lock held.
+     */
     private fun touchSession(at: Long, recordActivity: Boolean): Pair<String, Boolean> {
         var isNew = false
         val last = lastEventAt
-        if (sessionId == null || (last != null && at - last > timeoutMillis)) {
+        if (sessionId == null || expiredInBackground(at) || (last != null && at - last > timeoutMillis)) {
             sessionId = Identifiers.make("sess_")
             isNew = true
             lastEventAt = at
+            // A background event opened this session: its timeout starts now.
+            if (backgroundedAt != null) backgroundedAt = at
         }
         if (recordActivity || lastEventAt == null) lastEventAt = at
         return sessionId!! to isNew
