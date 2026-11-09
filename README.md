@@ -1,5 +1,7 @@
 # FindIP Shield for Android
 
+[![Maven Central](https://img.shields.io/maven-central/v/net.findip/shield-android)](https://central.sonatype.com/artifact/net.findip/shield-android)
+
 A verdict on each sensitive action in your app: signups, logins, password
 resets, checkouts. [FindIP Shield](https://www.findip.net/shield) scores the
 network behind the request (VPN, proxy, Tor, hosting, known-malicious) and
